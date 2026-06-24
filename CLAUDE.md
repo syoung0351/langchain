@@ -55,22 +55,38 @@ uv sync --group test
 ```
 
 ```bash
-# Run unit tests (no network)
+# Run unit tests, in-memory services only — no Docker required (fastest)
+make test_fast
+
+# Run full unit tests — spins up Docker Compose (Postgres + Redis) automatically
 make test
 
-# Run specific test file
-uv run --group test pytest tests/unit_tests/test_specific.py
+# Run middleware and agent tests with HTML coverage report
+make coverage_agents
+
+# Run a specific test file
+uv run --group test pytest tests/unit_tests/agents/deep_agent/ -v
+
+# Run integration tests (network calls allowed)
+make integration_tests
+
+# Run benchmarks
+make benchmark
 ```
 
 ```bash
-# Lint code
+# Lint code (ruff check + ruff format --diff + mypy)
 make lint
 
 # Format code
 make format
 
-# Type checking
-uv run --group lint mypy .
+# Type checking only
+make type
+
+# Lint/format only files changed relative to master
+make lint_diff
+make format_diff
 ```
 
 #### Environment and dependency management
@@ -310,6 +326,26 @@ When adding a new partner package, update these files:
 ## GitHub Actions & Workflows
 
 This repository require actions to be pinned to a full-length commit SHA. Attempting to use a tag will fail. Use the `gh` cli to query. Verify tags are not annotated tag objects (which would need dereferencing).
+
+## Deep research agent
+
+A LangGraph-based multi-step research agent ships in `libs/langchain_v1/langchain/agents/deep_agent/`. It runs three phases: **plan** (LLM decomposes the question into sub-questions) → **research** (iterative tool calls, capped by `max_iterations`) → **synthesize** (structured final report). Mock tools (`search_web`, `fetch_document`, `summarize_findings`) are included so the agent works without external API keys; swap them via `tools=[...]` for production use (Tavily, SerpAPI, etc.).
+
+```python
+from langchain.agents.deep_agent import create_deep_research_agent
+
+agent = create_deep_research_agent(model="anthropic:claude-sonnet-4-6", max_iterations=3)
+result = agent.invoke({"research_question": "How does transformer attention work?"})
+print(result["final_report"])
+```
+
+Unit tests live in `tests/unit_tests/agents/deep_agent/`. Run with:
+
+```bash
+uv run --group test pytest tests/unit_tests/agents/deep_agent/ -v
+```
+
+`claude-agent-sdk==0.2.108` is a runtime dependency of `langchain_v1` (brings in `mcp`, `uvicorn`, `starlette`, `pydantic-settings`).
 
 ## Additional resources
 
